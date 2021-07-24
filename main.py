@@ -1,5 +1,6 @@
 from sys import excepthook
 from pandas.io.parsers import read_csv
+from seaborn.rcmod import axes_style
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -20,10 +21,6 @@ col1, col2, col3 = st.beta_columns((2,1,1))
 
 with col1:
     city_name = st.selectbox("Choose City", ("Montreal", "New Brunswick", "Ottawa", "Quebec City", "Toronto", "Vancouver", "Victoria"))
-
-
-def header(url):
-     st.markdown(f'<p style="background-color:#434c5e;color:#fffff;font-size:24px;border-radius:2%;">{url}</p>', unsafe_allow_html=True)
 
 # Set colour on map based on type of rental
 def colour_picker(data):
@@ -122,10 +119,11 @@ with col1:
         ]
     ))
     # Bar plot for average nightly prices by number of guests
+    plt.style.use("dark_background")
     fig, ax = plt.subplots()
+    sns.set_palette("pastel")
     ax = sns.barplot(x=df['accommodates'],y=prices, estimator=np.mean, ci=None)
-    ax.set(xlabel='Maximum Guests', ylabel='Nightly Price ($)')
-    plt.title("Avg. Nightly Price by Number of Guests")
+    ax.set(xlabel='Maximum Guests', ylabel='Nightly Price ($)', title='Avg. Nightly Price by Number of Guests')
     ax.set_facecolor("#273346")
     fig.patch.set_facecolor("#273346")
     st.pyplot(fig)

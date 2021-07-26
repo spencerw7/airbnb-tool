@@ -1,4 +1,5 @@
 from sys import excepthook
+from numpy.core.fromnumeric import clip
 from pandas.io.parsers import read_csv
 from seaborn.rcmod import axes_style
 import streamlit as st
@@ -7,6 +8,7 @@ import numpy as np
 import pydeck as pdk
 import matplotlib.pyplot as plt
 import seaborn as sns
+from collections import Counter
 
 st.set_page_config(layout="wide")
 
@@ -79,6 +81,15 @@ else:
 df['colour'] = df['room_type'].apply(colour_picker)
 midpoint = (np.average(df["latitude"]), np.average(df["longitude"]))
 
+# Format prices
+try:
+    prices = pd.to_numeric(df['price'].replace({'\$':'',',':''}, regex=True).astype(float))
+except KeyError:
+    prices = 0
+df['price'] = prices
+# Filter out outliers
+df = df[df['price'] < 3000]    
+
 # Calculate metrics
 try:
     entire_home_pct = '{:.1%}'.format(df['room_type'].value_counts()['Entire home/apt']/len(df['room_type']))
@@ -92,12 +103,44 @@ try:
     shared_room_pct = '{:.1%}'.format(df['room_type'].value_counts()['Shared room']/len(df['room_type']))
 except KeyError:
     shared_room_pct = '{:.1%}'.format(0)
-try:
-    prices = pd.to_numeric(df['price'].replace({'\$':'',',':''}, regex=True).astype(float))
-except KeyError:
-    prices = 0
-avg_price = '${:,.2f}'.format(prices.mean())
+
+avg_price = '${:,.2f}'.format(df['price'].mean())
 est_occ_rate = '{:.1%}'.format(df['availability_90'].mean()/90)
+
+# Get number of amenities
+ac = 0
+heating = 0
+washer = 0
+dryer = 0
+kitchen = 0
+parking = 0
+internet = 0
+tv = 0
+pool = 0
+hottub = 0
+for x in df['amenities']:
+    amenities = x.strip("[]").replace('"', '').split(",")
+    for phrase in amenities:
+        if "Air conditioning" in phrase:
+            ac += 1
+        if "Heating" in phrase:
+            heating += 1
+        if "Washer" in phrase:
+            washer += 1
+        if "Dryer" in phrase:
+            dryer += 1
+        if "Kitchen" in phrase:
+            kitchen += 1
+        if "Free parking on premises" in phrase:
+            parking += 1
+        if "Wifi" in phrase:
+            internet += 1
+        if "TV" in phrase:
+            tv += 1
+        if "Pool" in phrase:
+            pool += 1
+        if "Hot tub" in phrase:
+            hottub += 1
 
 with col1:
     # Interactive map
@@ -122,7 +165,7 @@ with col1:
     plt.style.use("dark_background")
     fig, ax = plt.subplots()
     sns.set_palette("pastel")
-    ax = sns.barplot(x=df['accommodates'],y=prices, estimator=np.mean, ci=None)
+    ax = sns.barplot(x=df['accommodates'],y=df['price'], estimator=np.mean, ci=None, edgecolor=None)
     ax.set(xlabel='Maximum Guests', ylabel='Nightly Price ($)', title='Avg. Nightly Price by Number of Guests')
     ax.set_facecolor("#273346")
     fig.patch.set_facecolor("#273346")
@@ -165,4 +208,29 @@ with col2:
     ax.add_artist(circle_yellow)
 
     ax.axis('off')
+    st.pyplot(fig)
+
+    fig, ax = plt.subplots(figsize=(9.1,1))
+    ax.set_visible(False)
+    fig.patch.set_alpha(0.1)
+    st.pyplot(fig)
+
+    # Amenities plot
+    fig, ax = plt.subplots(1,1)
+    amenities_df = pd.DataFrame({"type":["Air conditioning", "Heating", "Washer", "Dryer", "Kitchen", "Parking", "Internet", "TV", "Pool", "Hot tub"],
+                                "pct":[ac/len(df["amenities"]), heating/len(df["amenities"]), washer/len(df["amenities"]), dryer/len(df["amenities"]), kitchen/len(df["amenities"]), parking/len(df["amenities"]), internet/len(df["amenities"]), tv/len(df["amenities"]), pool/len(df["amenities"]), hottub/len(df["amenities"])]})
+    ax = sns.barplot(x="pct", y="type", data=amenities_df)
+    vals = ax.get_xticks()
+    ax.set_xticklabels(['{:,.0%}'.format(x) for x in vals])
+    ax.set(xlabel=None, ylabel=None)
+    plt.title("Amenities")
+    st.pyplot(fig)
+
+    # Price distribution plot
+    fig, ax = plt.subplots(1,1)
+    ax = sns.kdeplot(x=df["price"], hue=df["host_is_superhost"], common_norm=True, fill=True, legend=False, clip=(-100,600))
+    plt.title("Price Density of Superhosts vs. Non Superhosts")
+    plt.legend(title='Superhost', loc='upper right', labels=['Yes', 'No'])
+    plt.yticks([])
+    ax.set(xlabel="Price ($)", ylabel=None)
     st.pyplot(fig)

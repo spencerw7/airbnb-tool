@@ -95,7 +95,7 @@ with col1:
     df = df[~df['bedrooms'].isna()]
 
     st.write('\n\n\n')
-    st.info('This is for educational purposes only and does not into consideration any fees or additional costs.')
+    st.info('This is for educational purposes only and does not take into consideration any fees or additional costs.')
     
     ### ML ###
     X = df.drop(['price', 'amenities'], axis=1)
